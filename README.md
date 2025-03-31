@@ -1,2 +1,2 @@
 # Breath-Timer
-chillaxtime.com
+breath-timer.netlify.app
