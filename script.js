@@ -43,16 +43,12 @@ function initElements() {
     console.log('要素の初期化完了');
 }
 
-// 音声システム初期化
-function setupAudio() {
-    // すでに初期化済みなら何もしない
-    if (audioContext) {
-        console.log('音声システムはすでに初期化されています');
-        return true;
-    }
-
+// AudioContextを初期化（直接ユーザージェスチャーから呼び出す必要あり）
+function initAudioContext() {
+    if (audioContext) return audioContext;
+    
     try {
-        // AudioContextの作成
+        console.log('AudioContextを初期化します');
         audioContext = new (window.AudioContext || window.webkitAudioContext)();
         
         // マスターゲインノード
@@ -60,53 +56,49 @@ function setupAudio() {
         masterGain.gain.value = 0.3; // 全体音量
         masterGain.connect(audioContext.destination);
         
-        console.log('AudioContext初期化:', audioContext.state);
+        console.log('AudioContext初期化完了:', audioContext.state);
+        return audioContext;
+    } catch (e) {
+        console.error('AudioContext初期化エラー:', e);
+        return null;
+    }
+}
+
+// 音声トーンを作成（AudioContextが初期化された後に呼び出す）
+function setupTones() {
+    if (!audioContext) return false;
+    
+    try {
+        console.log('トーンを設定します');
         
-        // 音を生成
-        inhaleTone = createTone(396, masterGain);
-        holdTone = createTone(528, masterGain);
-        exhaleTone = createTone(639, masterGain);
+        // 既存のトーンがあれば停止
+        if (inhaleTone) {
+            try { inhaleTone.oscillator.stop(); } catch (e) {}
+        }
+        if (holdTone) {
+            try { holdTone.oscillator.stop(); } catch (e) {}
+        }
+        if (exhaleTone) {
+            try { exhaleTone.oscillator.stop(); } catch (e) {}
+        }
         
-        // AudioContextのイベントリスナー
-        audioContext.onstatechange = function() {
-            console.log('AudioContext状態変更:', audioContext.state);
-        };
+        // 新しいトーンを作成
+        inhaleTone = createTone(396);
+        holdTone = createTone(528);
+        exhaleTone = createTone(639);
         
+        console.log('トーン設定完了');
         return true;
     } catch (e) {
-        console.error('音声システム初期化エラー:', e);
-        // 音声なしでも続行
-        audioEnabled = false;
+        console.error('トーン設定エラー:', e);
         return false;
     }
 }
 
-// 音声を有効化（ユーザーインタラクション内で呼び出す必要あり）
-function enableAudio() {
-    // 音声コンテキストがなければ初期化
-    if (!audioContext) {
-        setupAudio();
-    }
-    
-    // コンテキストが一時停止状態なら再開
-    if (audioContext && audioContext.state === 'suspended') {
-        console.log('AudioContextを再開します');
-        
-        audioContext.resume().then(() => {
-            console.log('AudioContext再開成功:', audioContext.state);
-            audioEnabled = true;
-        }).catch(err => {
-            console.error('AudioContext再開失敗:', err);
-            audioEnabled = false;
-        });
-    } else if (audioContext && audioContext.state === 'running') {
-        console.log('AudioContextは既に実行中です');
-        audioEnabled = true;
-    }
-}
-
 // トーン生成関数
-function createTone(frequency, outputNode, waveType = 'sine') {
+function createTone(frequency, waveType = 'sine') {
+    if (!audioContext) return null;
+    
     try {
         const oscillator = audioContext.createOscillator();
         const gainNode = audioContext.createGain();
@@ -116,20 +108,52 @@ function createTone(frequency, outputNode, waveType = 'sine') {
         gainNode.gain.value = 0;
         
         oscillator.connect(gainNode);
-        gainNode.connect(outputNode);
+        gainNode.connect(masterGain || audioContext.destination);
         
-        oscillator.start();
+        // ここでは開始しない
         
-        return { oscillator, gainNode };
+        return { oscillator, gainNode, isStarted: false };
     } catch (e) {
         console.error(`トーン生成エラー (${frequency}Hz):`, e);
         return null;
     }
 }
 
+// 音声トーンを開始（ユーザージェスチャー内で呼び出す）
+function startTones() {
+    if (!audioContext || !inhaleTone || !holdTone || !exhaleTone) return false;
+    
+    try {
+        console.log('トーンを開始します');
+        
+        // トーンが開始されていなければ開始
+        if (!inhaleTone.isStarted) {
+            inhaleTone.oscillator.start();
+            inhaleTone.isStarted = true;
+        }
+        
+        if (!holdTone.isStarted) {
+            holdTone.oscillator.start();
+            holdTone.isStarted = true;
+        }
+        
+        if (!exhaleTone.isStarted) {
+            exhaleTone.oscillator.start();
+            exhaleTone.isStarted = true;
+        }
+        
+        console.log('トーン開始完了');
+        audioEnabled = true;
+        return true;
+    } catch (e) {
+        console.error('トーン開始エラー:', e);
+        return false;
+    }
+}
+
 // 呼吸フェーズに合わせて音量を変更
 function adjustToneVolumes(phase) {
-    if (!audioEnabled || !audioContext || audioContext.state !== 'running') {
+    if (!audioEnabled || !audioContext || !inhaleTone || !holdTone || !exhaleTone) {
         return;
     }
 
@@ -195,52 +219,6 @@ function adjustToneVolumes(phase) {
     }
 }
 
-// 呼吸の状態に応じてサークルをアニメーション
-function animateBreathCircle() {
-    if (!isBreathing) return;
-    
-    breathCircle.style.transform = 'scale(1)';
-    breathCircle.style.boxShadow = '0 0 30px rgba(138, 158, 240, 0.5)';
-    waves.style.opacity = '0';
-    
-    if (phase === 'inhale') {
-        // 吸う - スケールを大きくする
-        breathCircle.animate([
-            { transform: 'scale(1)', boxShadow: '0 0 30px rgba(138, 158, 240, 0.5)' },
-            { transform: 'scale(1.5)', boxShadow: '0 0 50px rgba(138, 158, 240, 0.8)' }
-        ], {
-            duration: inhaleTime * 1000,
-            fill: 'forwards'
-        });
-        instructions.textContent = '吸う...';
-        waves.style.opacity = '1';
-        
-        // 音を調整
-        adjustToneVolumes('inhale');
-    } 
-    else if (phase === 'hold') {
-        // 息を止める
-        instructions.textContent = '息を止める...';
-        
-        // 音を調整
-        adjustToneVolumes('hold');
-    } 
-    else if (phase === 'exhale') {
-        // 吐く - スケールを元に戻す
-        breathCircle.animate([
-            { transform: 'scale(1.5)', boxShadow: '0 0 50px rgba(138, 158, 240, 0.8)' },
-            { transform: 'scale(1)', boxShadow: '0 0 30px rgba(138, 158, 240, 0.5)' }
-        ], {
-            duration: exhaleTime * 1000,
-            fill: 'forwards'
-        });
-        instructions.textContent = '吐く...';
-        
-        // 音を調整
-        adjustToneVolumes('exhale');
-    }
-}
-
 // パーティクルを作成
 function createParticles() {
     particles.innerHTML = '';
@@ -292,6 +270,58 @@ function animateParticle(particle) {
     move();
 }
 
+// 呼吸の状態に応じてサークルをアニメーション
+function animateBreathCircle() {
+    if (!isBreathing) return;
+    
+    breathCircle.style.transform = 'scale(1)';
+    breathCircle.style.boxShadow = '0 0 30px rgba(138, 158, 240, 0.5)';
+    waves.style.opacity = '0';
+    
+    if (phase === 'inhale') {
+        // 吸う - スケールを大きくする
+        breathCircle.animate([
+            { transform: 'scale(1)', boxShadow: '0 0 30px rgba(138, 158, 240, 0.5)' },
+            { transform: 'scale(1.5)', boxShadow: '0 0 50px rgba(138, 158, 240, 0.8)' }
+        ], {
+            duration: inhaleTime * 1000,
+            fill: 'forwards'
+        });
+        instructions.textContent = '吸う...';
+        waves.style.opacity = '1';
+        
+        // 音を調整（音声が有効な場合のみ）
+        if (audioEnabled) {
+            adjustToneVolumes('inhale');
+        }
+    } 
+    else if (phase === 'hold') {
+        // 息を止める
+        instructions.textContent = '息を止める...';
+        
+        // 音を調整（音声が有効な場合のみ）
+        if (audioEnabled) {
+            adjustToneVolumes('hold');
+        }
+    } 
+    else if (phase === 'exhale') {
+        // 吐く - スケールを元に戻す
+        breathCircle.animate([
+            { transform: 'scale(1.5)', boxShadow: '0 0 50px rgba(138, 158, 240, 0.8)' },
+            { transform: 'scale(1)', boxShadow: '0 0 30px rgba(138, 158, 240, 0.5)' }
+        ], {
+            duration: exhaleTime * 1000,
+            fill: 'forwards'
+        });
+        instructions.textContent = '吐く...';
+        
+        // 音を調整（音声が有効な場合のみ）
+        if (audioEnabled) {
+            adjustToneVolumes('exhale');
+        }
+    }
+}
+
 // 呼吸サイクルを開始
 function startBreathing() {
     if (isBreathing) return;
@@ -301,14 +331,6 @@ function startBreathing() {
     isBreathing = true;
     startBtn.disabled = true;
     stopBtn.disabled = false;
-    
-    // 音声が有効なら音声を調整
-    if (audioEnabled && audioContext && audioContext.state === 'running') {
-        console.log('音声が有効です');
-        adjustToneVolumes('idle'); // 初期状態
-    } else {
-        console.log('音声が無効またはサスペンド状態です');
-    }
     
     // 経過時間の計測を開始
     startTime = new Date();
@@ -350,7 +372,7 @@ function stopBreathing() {
     }
     
     // 音声が有効なら音を停止
-    if (audioEnabled && audioContext) {
+    if (audioEnabled && audioContext && inhaleTone && holdTone && exhaleTone) {
         try {
             adjustToneVolumes('idle'); // すべての音を無音に
         } catch (e) {
@@ -414,74 +436,83 @@ function setBreathPattern(inhale, hold, exhale) {
     exhaleTime = exhale;
 }
 
+// 音声を初期化してセットアップ（ユーザージェスチャー内で呼び出す）
+function setupAudio() {
+    // AudioContextを初期化
+    const ctx = initAudioContext();
+    if (!ctx) return false;
+    
+    // 一時停止状態なら再開を試みる
+    if (ctx.state === 'suspended') {
+        console.log('AudioContextを再開します');
+        ctx.resume().then(() => {
+            console.log('AudioContext再開成功:', ctx.state);
+            // トーンをセットアップ
+            if (setupTones()) {
+                // トーンを開始
+                startTones();
+            }
+        }).catch(err => {
+            console.error('AudioContext再開失敗:', err);
+        });
+    } else {
+        // 既に実行中なら直接トーンをセットアップ
+        if (setupTones()) {
+            // トーンを開始
+            startTones();
+        }
+    }
+    
+    return true;
+}
+
 // イベントリスナーの設定
 function setupEventListeners() {
     console.log('イベントリスナーを設定します');
     
-    // すべてのユーザーインタラクションで音声を有効化する関数
-    function tryEnableAudio(e) {
-        console.log('ユーザーインタラクション検出:', e.type);
-        enableAudio();
-    }
-    
-    // モバイルでの音声有効化のため、さまざまなイベントをリッスン
-    document.addEventListener('touchstart', tryEnableAudio, {once: true});
-    document.addEventListener('touchend', tryEnableAudio, {once: true});
-    document.addEventListener('click', tryEnableAudio, {once: true});
-    
-    // 開始ボタン（クリックイベント）
+    // 開始ボタン - クリック
     startBtn.addEventListener('click', function(e) {
         console.log('開始ボタンがクリックされました');
-        e.preventDefault();
         
-        // 音声を有効化して開始
-        enableAudio();
+        // 音声のセットアップ（ユーザージェスチャー内で）
+        setupAudio();
+        
+        // 呼吸を開始
         startBreathing();
     });
     
-    // 開始ボタン（タッチイベント - モバイル用）
-    startBtn.addEventListener('touchstart', function(e) {
-        console.log('開始ボタンがタッチ開始されました');
-        e.preventDefault(); // スクロールやズームを防止
-        
-        // 音声有効化のみ（実際の開始はtouchendで）
-        enableAudio();
-    });
-    
+    // 開始ボタン - タッチ
     startBtn.addEventListener('touchend', function(e) {
-        console.log('開始ボタンがタッチ終了されました');
-        e.preventDefault();
+        e.preventDefault(); // デフォルトの動作を防止
+        console.log('開始ボタンがタッチされました');
         
-        // 音声を有効化して開始
-        enableAudio();
-        setTimeout(() => {
-            startBreathing();
-        }, 100); // 少し遅延を入れる
+        // 音声のセットアップ（ユーザージェスチャー内で）
+        setupAudio();
+        
+        // 呼吸を開始
+        startBreathing();
     });
     
-    // 停止ボタン（クリックイベント）
+    // 停止ボタン - クリック
     stopBtn.addEventListener('click', function(e) {
-        console.log('停止ボタンがクリックされました');
         e.preventDefault();
+        console.log('停止ボタンがクリックされました');
         stopBreathing();
     });
     
-    // 停止ボタン（タッチイベント - モバイル用）
-    stopBtn.addEventListener('touchstart', function(e) {
-        console.log('停止ボタンがタッチ開始されました');
-        e.preventDefault();
-    });
-    
+    // 停止ボタン - タッチ
     stopBtn.addEventListener('touchend', function(e) {
-        console.log('停止ボタンがタッチ終了されました');
         e.preventDefault();
+        console.log('停止ボタンがタッチされました');
         stopBreathing();
     });
     
     // パターン選択ボタン
     patternBtns.forEach(btn => {
-        // クリックとタッチの両方に対応
-        const patternChangeHandler = function() {
+        // パターン変更ハンドラー
+        const patternChangeHandler = function(e) {
+            if (e) e.preventDefault();
+            
             patternBtns.forEach(b => b.classList.remove('active'));
             this.classList.add('active');
             
@@ -491,14 +522,17 @@ function setupEventListeners() {
             
             setBreathPattern(inhale, hold, exhale);
             
-            // パターン変更時も音声を有効化
-            enableAudio();
+            // パターン変更時も音声を初期化（ユーザージェスチャー内で）
+            setupAudio();
         };
         
+        // クリックイベント
         btn.addEventListener('click', patternChangeHandler);
+        
+        // タッチイベント
         btn.addEventListener('touchend', function(e) {
             e.preventDefault();
-            patternChangeHandler.call(this);
+            patternChangeHandler.call(this, e);
         });
     });
     
@@ -510,7 +544,8 @@ function setupEventListeners() {
             if (isBreathing) {
                 stopBreathing();
             } else {
-                enableAudio();
+                // 音声のセットアップ（ユーザージェスチャー内で）
+                setupAudio();
                 startBreathing();
             }
         }
@@ -522,55 +557,20 @@ function setupEventListeners() {
         }
     });
     
-    // visibilitychange イベントでバックグラウンド検出
-    document.addEventListener('visibilitychange', function() {
-        if (document.hidden) {
-            console.log('ページがバックグラウンドになりました');
-            // バックグラウンドに行ったときは何もしない（音声は続行）
-        } else {
-            console.log('ページがフォアグラウンドに戻りました');
-            // フォアグラウンドに戻ったときは音声を再開
-            if (isBreathing && audioContext && audioContext.state === 'suspended') {
-                enableAudio();
-            }
-        }
-    });
+    // iOS Safariの対策のためのタッチリスナー
+    if (isIOS) {
+        console.log('iOS向けのタッチリスナーを設定');
+        
+        // ページ内の任意の場所をタップしたときにAudioContextを有効化
+        document.body.addEventListener('touchend', function iosTouchHandler() {
+            console.log('iOS: ドキュメントがタッチされました');
+            setupAudio();
+            // 一度だけ実行するためリスナーを削除
+            document.body.removeEventListener('touchend', iosTouchHandler);
+        });
+    }
     
     console.log('イベントリスナーの設定が完了しました');
-}
-
-// iOS Safariの自動再生制限対策
-function setupIOSSpecificFixes() {
-    if (!isIOS) return;
-    
-    console.log('iOS向けの追加対策を設定します');
-    
-    // iOS Safariでの音声再生を確実にするため、さまざまなイベントをキャッチ
-    const userEvents = ['touchstart', 'touchend', 'mousedown', 'mouseup', 'click'];
-    
-    userEvents.forEach(eventType => {
-        document.body.addEventListener(eventType, function onFirstTouch() {
-            console.log('iOS: ユーザーインタラクション検出:', eventType);
-            
-            // 音声システムをセットアップ
-            setupAudio();
-            
-            // 音声コンテキストが存在し、一時停止状態なら再開
-            if (audioContext && audioContext.state === 'suspended') {
-                audioContext.resume().then(() => {
-                    console.log('iOS: AudioContext再開成功');
-                    audioEnabled = true;
-                }).catch(err => {
-                    console.error('iOS: AudioContext再開失敗:', err);
-                });
-            }
-            
-            // イベントリスナーを一度だけ実行して削除
-            userEvents.forEach(e => document.body.removeEventListener(e, onFirstTouch));
-        });
-    });
-    
-    console.log('iOS向けの追加対策を設定しました');
 }
 
 // 初期化関数
@@ -578,7 +578,7 @@ function init() {
     console.log('アプリケーション初期化を開始します');
     console.log('デバイス:', isMobile ? 'モバイル' : 'デスクトップ', isIOS ? '(iOS)' : '');
     
-    // まずDOM要素を取得
+    // DOM要素を取得
     initElements();
     
     // パーティクル作成
@@ -587,21 +587,8 @@ function init() {
     // イベントリスナー設定
     setupEventListeners();
     
-    // iOS特有の対策
-    if (isIOS) {
-        setupIOSSpecificFixes();
-    }
-    
-    // 初期音声セットアップを試みる（後でユーザー操作で有効化）
-    setupAudio();
-    
     console.log('アプリケーション初期化が完了しました');
 }
 
 // ページ読み込み時に初期化を実行
-window.addEventListener('DOMContentLoaded', init);
-
-// ページが完全に読み込まれたときの処理
-window.addEventListener('load', function() {
-    console.log('ページの読み込みが完了しました');
-});
+document.addEventListener('DOMContentLoaded', init);
