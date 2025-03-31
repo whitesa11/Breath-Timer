@@ -31,7 +31,7 @@ const isSafari = /Safari/.test(navigator.userAgent) && !isChrome;
 let userInteracted = false;
 
 // Log prefix for easier debugging
-const LOG_PREFIX = '🔊 ';
+const LOG_PREFIX = ' ';
 
 // DOMが読み込まれた後に要素を取得
 function initElements() {
