@@ -25,8 +25,11 @@ let exhaleTone = null;
 // モバイルデバイス検出
 const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 // iOS検出
-const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
              (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+// スマホでは呼吸アニメーションのスケールを小さくする
+const breathScale = (window.innerWidth <= 768) ? 1.3 : 1.5;
 
 // DOMが読み込まれた後に要素を取得
 function initElements() {
@@ -282,7 +285,7 @@ function animateBreathCircle() {
         // 吸う - スケールを大きくする
         breathCircle.animate([
             { transform: 'scale(1)', boxShadow: '0 0 30px rgba(138, 158, 240, 0.5)' },
-            { transform: 'scale(1.5)', boxShadow: '0 0 50px rgba(138, 158, 240, 0.8)' }
+            { transform: `scale(${breathScale})`, boxShadow: '0 0 50px rgba(138, 158, 240, 0.8)' }
         ], {
             duration: inhaleTime * 1000,
             fill: 'forwards'
@@ -307,7 +310,7 @@ function animateBreathCircle() {
     else if (phase === 'exhale') {
         // 吐く - スケールを元に戻す
         breathCircle.animate([
-            { transform: 'scale(1.5)', boxShadow: '0 0 50px rgba(138, 158, 240, 0.8)' },
+            { transform: `scale(${breathScale})`, boxShadow: '0 0 50px rgba(138, 158, 240, 0.8)' },
             { transform: 'scale(1)', boxShadow: '0 0 30px rgba(138, 158, 240, 0.5)' }
         ], {
             duration: exhaleTime * 1000,

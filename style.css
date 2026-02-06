@@ -1,3 +1,7 @@
+* {
+    box-sizing: border-box;
+}
+
 body {
     margin: 0;
     padding: 0;
@@ -5,10 +9,13 @@ body {
     justify-content: center;
     align-items: center;
     min-height: 100vh;
+    min-height: 100dvh;
     background-color: #121f3d;
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     overflow: hidden;
     color: white;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    -webkit-tap-highlight-color: transparent;
 }
 
 .container {
@@ -17,25 +24,26 @@ body {
     width: 100%;
     max-width: 800px;
     padding: 20px;
-    /* コンテンツを上に移動させる */
-    margin-top: -40px;
-    /* 下部に余白を追加してURLとの重複を防ぐ */
-    padding-bottom: 60px;
-    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
 }
 
 h1 {
-    margin-bottom: 15px;
+    margin: 0;
     color: #e0e0ff;
     font-weight: 300;
+    font-size: clamp(24px, 5vw, 36px);
 }
 
 p {
-    margin: 10px 0;
+    margin: 0;
+    font-size: clamp(13px, 3vw, 16px);
+    opacity: 0.85;
 }
 
 .controls {
-    margin: 15px 0;
     display: flex;
     justify-content: center;
     gap: 20px;
@@ -55,6 +63,7 @@ button {
     font-size: 16px;
     position: relative;
     z-index: 10;
+    touch-action: manipulation;
 }
 
 button:hover {
@@ -70,29 +79,27 @@ button:disabled {
 }
 
 #breathCircle {
-    width: 180px;
-    height: 180px;
+    width: clamp(140px, 30vw, 180px);
+    height: clamp(140px, 30vw, 180px);
     border-radius: 50%;
     background: radial-gradient(circle, #8a9ef0, #3a4f8a);
-    margin: 20px auto;
     display: flex;
     justify-content: center;
     align-items: center;
     position: relative;
     box-shadow: 0 0 30px rgba(138, 158, 240, 0.5);
     transition: all 0.3s ease;
+    flex-shrink: 0;
 }
 
 #instructions {
-    font-size: 18px;
-    margin: 10px 0;
+    font-size: clamp(15px, 3.5vw, 18px);
     opacity: 0.9;
-    height: 24px;
+    min-height: 24px;
     color: white;
 }
 
 .pattern-selector {
-    margin: 15px 0;
     display: flex;
     justify-content: center;
     gap: 10px;
@@ -109,7 +116,6 @@ button:disabled {
 }
 
 .stats {
-    margin-top: 10px;
     display: flex;
     justify-content: center;
     gap: 20px;
@@ -181,48 +187,34 @@ button:disabled {
     border-radius: 50%;
 }
 
-/* スマホ向けの調整 */
+/* タブレット・スマホ向けの調整 */
 @media (max-width: 768px) {
+    body {
+        overflow-y: auto;
+    }
+
     .container {
-        margin-top: -50px;
-        padding-bottom: 70px;
+        gap: 10px;
+        padding: 16px;
+        justify-content: center;
+        min-height: 100vh;
+        min-height: 100dvh;
     }
-    
-    h1 {
-        margin-top: 0;
-        margin-bottom: 10px;
-        font-size: 28px;
-    }
-    
-    #breathCircle {
-        width: 160px;
-        height: 160px;
-        margin: 15px auto;
-    }
-    
-    .stats {
-        flex-wrap: wrap;
-    }
-    
-    .controls, .pattern-selector {
-        margin: 10px 0;
-    }
-    
+
     button {
         padding: 10px 20px;
         font-size: 14px;
     }
 
     .waves {
-        width: 160px;
-        height: 160px;
+        width: 200px;
+        height: 200px;
     }
 
     .wave {
-        /* スマホではさらに境界線を薄く */
         border: 1px solid rgba(138, 158, 240, 0.35);
     }
-    
+
     @keyframes wave-animation {
         0% {
             width: 0px;
@@ -230,48 +222,108 @@ button:disabled {
             opacity: 0.4;
         }
         100% {
-            width: 160px;
-            height: 160px;
+            width: 200px;
+            height: 200px;
             opacity: 0;
         }
     }
 }
 
-/* 更に小さい画面向け */
-@media (max-width: 375px) {
+/* 小さい画面（高さが低い端末）向け */
+@media (max-height: 667px) {
     .container {
-        margin-top: -60px;
-        padding-bottom: 80px;
+        gap: 6px;
+        padding: 12px;
     }
-    
+
     #breathCircle {
-        width: 140px;
-        height: 140px;
+        width: 120px;
+        height: 120px;
     }
-    
-    .stats {
-        gap: 10px;
+
+    .stat-box {
+        padding: 8px 14px;
+        font-size: 14px;
     }
 
     .waves {
-        width: 140px;
-        height: 140px;
+        width: 150px;
+        height: 150px;
     }
-    
+
     @keyframes wave-animation {
         0% {
             width: 0px;
             height: 0px;
             opacity: 0.3;
         }
-        
-        50% {
-            opacity: 0.15;
-        }
         100% {
-            width: 140px;
-            height: 140px;
+            width: 150px;
+            height: 150px;
             opacity: 0;
         }
+    }
+}
+
+/* 更に小さい画面幅向け */
+@media (max-width: 375px) {
+    .stats {
+        gap: 10px;
+    }
+
+    .stat-box {
+        padding: 8px 14px;
+        font-size: 14px;
+    }
+}
+
+/* 横向きスマホ対応 */
+@media (max-height: 500px) and (orientation: landscape) {
+    .container {
+        flex-direction: row;
+        flex-wrap: wrap;
+        justify-content: center;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 20px;
+        min-height: auto;
+    }
+
+    h1 {
+        width: 100%;
+        font-size: 20px;
+    }
+
+    p {
+        display: none;
+    }
+
+    #breathCircle {
+        width: 100px;
+        height: 100px;
+    }
+
+    .waves {
+        width: 120px;
+        height: 120px;
+    }
+
+    @keyframes wave-animation {
+        0% {
+            width: 0px;
+            height: 0px;
+            opacity: 0.3;
+        }
+        100% {
+            width: 120px;
+            height: 120px;
+            opacity: 0;
+        }
+    }
+
+    .pattern-selector,
+    .controls,
+    .stats {
+        width: auto;
     }
 }

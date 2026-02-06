@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>ブレスコントロール-Breath Timer</title>
     <link rel="stylesheet" href="style.css" type="text/css"> 
     <!-- Favicon の設定 -->
@@ -27,8 +27,6 @@
             <button id="stopBtn" disabled style="background-color: #9B2D30;" onclick="stopBreathing()">停止</button>
         </div>
         
-        <div style="height: 20px;"></div><!-- 上部スペーサー -->
-        
         <div id="breathCircle">
             <div class="waves">
                 <div class="wave"></div>
@@ -37,12 +35,8 @@
                 <div class="wave"></div>
             </div>
         </div>
-        
-        <div style="height: 15px;"></div><!-- 中間スペーサー -->
-        
+
         <div id="instructions">準備ができたら「開始」を押してください</div>
-        
-        <div style="height: 5px;"></div><!-- 中間スペーサーを小さく -->
         
         <div class="stats">
             <div class="stat-box">
