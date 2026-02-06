@@ -440,32 +440,28 @@ function setBreathPattern(inhale, hold, exhale) {
 }
 
 // 音声を初期化してセットアップ（ユーザージェスチャー内で呼び出す）
-function setupAudio() {
+async function setupAudio() {
     // AudioContextを初期化
     const ctx = initAudioContext();
     if (!ctx) return false;
-    
+
     // 一時停止状態なら再開を試みる
     if (ctx.state === 'suspended') {
         console.log('AudioContextを再開します');
-        ctx.resume().then(() => {
+        try {
+            await ctx.resume();
             console.log('AudioContext再開成功:', ctx.state);
-            // トーンをセットアップ
-            if (setupTones()) {
-                // トーンを開始
-                startTones();
-            }
-        }).catch(err => {
+        } catch (err) {
             console.error('AudioContext再開失敗:', err);
-        });
-    } else {
-        // 既に実行中なら直接トーンをセットアップ
-        if (setupTones()) {
-            // トーンを開始
-            startTones();
+            return false;
         }
     }
-    
+
+    // トーンをセットアップして開始
+    if (setupTones()) {
+        startTones();
+    }
+
     return true;
 }
 
@@ -473,87 +469,65 @@ function setupAudio() {
 function setupEventListeners() {
     console.log('イベントリスナーを設定します');
     
-    // 開始ボタン - クリック
-    startBtn.addEventListener('click', function(e) {
-        console.log('開始ボタンがクリックされました');
-        
-        // 音声のセットアップ（ユーザージェスチャー内で）
-        setupAudio();
-        
-        // 呼吸を開始
-        startBreathing();
-    });
-    
-    // 開始ボタン - タッチ
-    startBtn.addEventListener('touchend', function(e) {
-        e.preventDefault(); // デフォルトの動作を防止
-        console.log('開始ボタンがタッチされました');
-        
-        // 音声のセットアップ（ユーザージェスチャー内で）
-        setupAudio();
-        
-        // 呼吸を開始
-        startBreathing();
-    });
-    
-    // 停止ボタン - クリック
-    stopBtn.addEventListener('click', function(e) {
+    // 開始ボタンのハンドラー
+    async function handleStart(e) {
         e.preventDefault();
-        console.log('停止ボタンがクリックされました');
-        stopBreathing();
-    });
+        console.log('開始ボタンが操作されました');
+
+        // 音声のセットアップ完了を待ってから呼吸を開始
+        await setupAudio();
+        startBreathing();
+    }
+
+    startBtn.addEventListener('click', handleStart);
+    startBtn.addEventListener('touchend', handleStart);
     
-    // 停止ボタン - タッチ
-    stopBtn.addEventListener('touchend', function(e) {
+    // 停止ボタンのハンドラー
+    function handleStop(e) {
         e.preventDefault();
-        console.log('停止ボタンがタッチされました');
+        console.log('停止ボタンが操作されました');
         stopBreathing();
-    });
+    }
+
+    stopBtn.addEventListener('click', handleStop);
+    stopBtn.addEventListener('touchend', handleStop);
     
     // パターン選択ボタン
     patternBtns.forEach(btn => {
-        // パターン変更ハンドラー
         const patternChangeHandler = function(e) {
-            if (e) e.preventDefault();
-            
+            e.preventDefault();
+
             patternBtns.forEach(b => b.classList.remove('active'));
             this.classList.add('active');
-            
+
             const inhale = parseInt(this.dataset.inhale);
             const hold = parseInt(this.dataset.hold);
             const exhale = parseInt(this.dataset.exhale);
-            
+
             setBreathPattern(inhale, hold, exhale);
-            
+
             // パターン変更時も音声を初期化（ユーザージェスチャー内で）
             setupAudio();
         };
-        
-        // クリックイベント
+
         btn.addEventListener('click', patternChangeHandler);
-        
-        // タッチイベント
         btn.addEventListener('touchend', function(e) {
-            e.preventDefault();
             patternChangeHandler.call(this, e);
         });
     });
     
     // キーボードショートカット
-    document.addEventListener('keydown', function(e) {
-        // スペースキーで開始/停止を切り替え
+    document.addEventListener('keydown', async function(e) {
         if (e.code === 'Space') {
             e.preventDefault();
             if (isBreathing) {
                 stopBreathing();
             } else {
-                // 音声のセットアップ（ユーザージェスチャー内で）
-                setupAudio();
+                await setupAudio();
                 startBreathing();
             }
         }
-        
-        // ESCキーで停止
+
         if (e.code === 'Escape' && isBreathing) {
             e.preventDefault();
             stopBreathing();
